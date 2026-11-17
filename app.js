@@ -581,7 +581,83 @@
     if (!force.armed && Math.abs(dx) > 30 && Math.abs(dy) < 50) backspace();
   });
 
-  // Hold / tap handling for the two round buttons.
+  // ----- Diagnostics (hidden) -----
+  // Hold the big number for 3 seconds to show what iOS reports about the screen; hold again to
+  // hide it. Coloured lines mark where each candidate "bottom of the screen" is.
+  const APP_VERSION = 'v9';
+  let diagEl = null;
+  let diagTimer = null;
+  function measureUnit(unit) {
+    const d = document.createElement('div');
+    d.style.cssText = 'position:fixed;top:0;left:0;width:1px;visibility:hidden;height:100' + unit;
+    document.body.appendChild(d);
+    const h = d.getBoundingClientRect().height;
+    d.remove();
+    return Math.round(h * 10) / 10;
+  }
+  function diagInfo() {
+    const safe = insets();
+    const vv = window.visualViewport;
+    const portrait = calcEl.clientHeight >= calcEl.clientWidth;
+    const sLong = Math.max(screen.width, screen.height);
+    const sShort = Math.min(screen.width, screen.height);
+    return {
+      version: APP_VERSION,
+      mode: calcEl.dataset.mode,
+      standalone: String(navigator.standalone) + ' / ' + (window.matchMedia ? matchMedia('(display-mode: standalone)').matches : '?'),
+      statusBar: (document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]') || {}).content,
+      screen: screen.width + ' x ' + screen.height,
+      inner: innerWidth + ' x ' + innerHeight,
+      calc: calcEl.clientWidth + ' x ' + calcEl.clientHeight,
+      docEl: document.documentElement.clientWidth + ' x ' + document.documentElement.clientHeight,
+      visualViewport: vv ? Math.round(vv.width) + ' x ' + Math.round(vv.height) + ' @ ' + Math.round(vv.offsetTop) : 'n/a',
+      vh_lvh_svh_dvh: ['vh', 'lvh', 'svh', 'dvh'].map(measureUnit).join(' / '),
+      safe_trbl: [safe.top, safe.right, safe.bottom, safe.left].join(' / '),
+      orientation: (screen.orientation && screen.orientation.type) + ' ' + (window.orientation ?? ''),
+      dpr: window.devicePixelRatio,
+      screenSideForHeight: portrait ? sLong : sShort,
+    };
+  }
+  function line(color, top, label, pos) {
+    const el = document.createElement('div');
+    el.style.cssText = 'position:fixed;left:0;right:0;height:3px;z-index:1000;background:' + color + ';top:' + top;
+    const t = document.createElement('span');
+    t.textContent = label;
+    t.style.cssText = 'position:absolute;bottom:4px;font:600 12px -apple-system,sans-serif;' + pos + ';color:' + color;
+    el.appendChild(t);
+    return el;
+  }
+  function showDiag() {
+    if (diagEl) diagEl.remove();
+    const info = diagInfo();
+    diagEl = document.createElement('div');
+    const panel = document.createElement('pre');
+    panel.textContent = Object.entries(info).map(([k, v]) => k + ': ' + v).join('\n');
+    panel.style.cssText = 'position:fixed;left:12px;top:90px;z-index:1001;margin:0;padding:10px 12px;' +
+      'background:rgba(20,20,20,.92);color:#fff;font:13px/1.45 ui-monospace,Menlo,monospace;border-radius:10px;' +
+      'border:1px solid #555;white-space:pre;pointer-events:none';
+    diagEl.appendChild(panel);
+    diagEl.appendChild(line('#33ff66', 'calc(100% - 3px)', 'green: page bottom (100%)', 'left:6px'));
+    diagEl.appendChild(line('#ff44ff', 'calc(100lvh - 3px)', 'pink: 100lvh', 'left:40%'));
+    diagEl.appendChild(line('#ff4444', info.screenSideForHeight - 3 + 'px', 'red: screen height ' + info.screenSideForHeight, 'right:6px'));
+    document.body.appendChild(diagEl);
+  }
+  function toggleDiag() {
+    if (diagEl) {
+      diagEl.remove();
+      diagEl = null;
+    } else showDiag();
+  }
+  displayEl.addEventListener('pointerdown', () => {
+    if (force.armed) return;
+    clearTimeout(diagTimer);
+    diagTimer = setTimeout(toggleDiag, 3000);
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach((t) =>
+    displayEl.addEventListener(t, () => clearTimeout(diagTimer)));
+  window.addEventListener('resize', () => { if (diagEl) setTimeout(showDiag, 300); });
+  if (new URLSearchParams(location.search).has('diag')) setTimeout(showDiag, 300);
+
   // Hold / tap handling for the two round buttons. Fingers (and Apple Pencil) use touch events
   // with preventDefault, so iOS can't turn a long press into a system gesture (callout, text
   // selection, haptic menu) and cancel the hold half way. A mouse uses pointer events.
@@ -752,6 +828,7 @@
     neededFor,
     layout,
     mode: () => calcEl.dataset.mode,
+    diag: diagInfo,
     state: () => ({ seq: seq.slice(), entry, result, grey: grey.slice(), force: { ...force }, text: textEl.textContent, greyText: exprTextEl.textContent }),
   };
 })();
