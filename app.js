@@ -57,7 +57,9 @@
     coverPortrait: { ref: [466, 678], side: [16, 16], gap: [10, 10], keyH: 'circle', font: 72, textGap: 24, rightBtn: 104 },
     coverLandscape: { ref: [678, 466], side: [13.7, 97.3], gap: [10, 10], keyH: 46, font: 47.7, textGap: 16.3, rightBtn: 104 },
     innerPortrait: { ref: [669, 951], side: [24, 24], gap: [10, 10], keyH: 92.7, font: 111.6, textGap: 36, rightBtn: 20 },
-    innerLandscape: { ref: [951, 669], side: [24, 24], gap: [12, 12], keyH: 61.3, font: 75, textGap: 24.7, rightBtn: 20 },
+    // Sideways and unfolded, the status bar only occupies the top-right corner (iOS reports it
+    // as a right inset), so the keypad still runs the full width as in the real app.
+    innerLandscape: { ref: [951, 669], side: [24, 24], gap: [12, 12], keyH: 61.3, font: 75, textGap: 24.7, rightBtn: 20, fullWidthKeypad: true },
   };
   const COVER_MAX_SHORT_SIDE = 560; // cover screen ~466pt across, inner ~669pt
   const BASELINE = 0.86; // baseline position within a line-height:1 box, in em (SF Pro)
@@ -116,11 +118,13 @@
   function duoGeometry(W, H, safe, m, landscape) {
     const sy = H / m.ref[1];
     let [left, right] = m.side;
-    // A reserved band on one side (cover screen, landscape). If iOS reports it as a safe
-    // area, don't count it twice; if it's reported on the left, put the gap there instead.
-    if (safe.left > safe.right && landscape) [left, right] = [right, left];
-    left = Math.max(left, safe.left + Math.min(...m.side));
-    right = Math.max(right, safe.right + Math.min(...m.side));
+    if (!m.fullWidthKeypad) {
+      // A reserved band on one side (cover screen, landscape). If iOS reports it as a safe
+      // area, don't count it twice; if it's reported on the left, put the gap there instead.
+      if (safe.left > safe.right && landscape) [left, right] = [right, left];
+      left = Math.max(left, safe.left + Math.min(...m.side));
+      right = Math.max(right, safe.right + Math.min(...m.side));
+    }
     const [gapX, gapY] = m.gap;
     const keyW = (W - left - right - 4 * gapX) / 5;
     const keyH =
@@ -142,11 +146,30 @@
     };
   }
 
+  // The real height of the area the app draws in. Run from the Home Screen, iOS draws the page
+  // over the whole screen but can report a height that's short by the status bar (on the
+  // unfolded Duo about 82pt), which would leave a black band under the keypad. So in that case
+  // take the height from the screen itself: whichever screen side matches our width, the other
+  // side is our height.
+  function realHeight(W) {
+    calcEl.style.height = '';
+    let H = Math.max(calcEl.clientHeight, window.innerHeight || 0);
+    const standalone =
+      navigator.standalone === true ||
+      (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+    const a = screen.width;
+    const b = screen.height;
+    if (standalone && a && b) {
+      if (Math.abs(W - a) <= 2) H = Math.max(H, b);
+      else if (Math.abs(W - b) <= 2) H = Math.max(H, a);
+    }
+    calcEl.style.height = H + 'px'; // let the black background reach the bottom too
+    return H;
+  }
+
   function layout() {
-    // iOS can briefly report a page shorter than the screen just after rotating; take the
-    // largest of the sizes it reports so the keypad is anchored to the real bottom edge.
     const W = calcEl.clientWidth;
-    const H = Math.max(calcEl.clientHeight, window.innerHeight || 0);
+    const H = realHeight(W);
     if (!W || !H) return;
     const safe = insets();
     const { mode } = pickMode(W, H);

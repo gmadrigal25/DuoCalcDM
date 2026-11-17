@@ -60,7 +60,10 @@ html, body {
 
 .calc {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100%; /* replaced by the real screen height from app.js */
   background: #000;
   touch-action: manipulation;
 }
