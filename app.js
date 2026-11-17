@@ -584,7 +584,7 @@
   // ----- Diagnostics (hidden) -----
   // Hold the big number for 3 seconds to show what iOS reports about the screen; hold again to
   // hide it. Coloured lines mark where each candidate "bottom of the screen" is.
-  const APP_VERSION = 'v9';
+  const APP_VERSION = 'v10';
   let diagEl = null;
   let diagTimer = null;
   function measureUnit(unit) {
@@ -616,6 +616,8 @@
       orientation: (screen.orientation && screen.orientation.type) + ' ' + (window.orientation ?? ''),
       dpr: window.devicePixelRatio,
       screenSideForHeight: portrait ? sLong : sShort,
+      frameShort: frameLooksShort(),
+      fixes: healLog.join(' → ') || '-',
     };
   }
   function line(color, top, label, pos) {
@@ -765,9 +767,119 @@
   });
 
   // Re-fit on every size change: fold, unfold, rotate, Stage Manager style resizes.
-  window.addEventListener('resize', layout);
+  // ----- Recovering from the iOS rotation bug -----
+  // On the unfolded Duo, a Home Screen web app opened sideways gets the full screen height, but
+  // after being turned upright and back, iOS subtracts the status bar's height again even though
+  // sideways the status bar sits in the right-hand strip. The page is then cut off 82pt short,
+  // and nothing can be drawn below that. Signs: sideways, and the full-height unit (100lvh) is
+  // taller than the page. We nudge iOS into redoing the frame: first by briefly changing the page
+  // settings it reads, and if that doesn't work, by reloading once with everything kept.
+  const RESUME_KEY = 'duocalc.resume';
+  const HEAL_KEY = 'duocalc.heal';
+  let healing = false;
+  let healTimer = null;
+  let healLog = [];
+  const session = () => { try { return window.sessionStorage; } catch (e) { return null; } };
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  function frameLooksShort() {
+    if (calcEl.clientWidth <= calcEl.clientHeight) return false; // only happens sideways
+    const full = measureUnit('lvh') || measureUnit('vh');
+    return full - window.innerHeight > 40;
+  }
+
+  function note(text) {
+    healLog.push(text);
+    if (healLog.length > 8) healLog.shift();
+  }
+
+  function saveResume() {
+    const s = session();
+    if (!s) return;
+    s.setItem(RESUME_KEY, JSON.stringify({ at: Date.now(), seq, entry, result, repeat, grey, force }));
+  }
+
+  function restoreResume() {
+    const s = session();
+    if (!s) return;
+    let r = null;
+    try { r = JSON.parse(s.getItem(RESUME_KEY) || 'null'); } catch (e) { r = null; }
+    s.removeItem(RESUME_KEY);
+    if (!r || Date.now() - r.at > 20000) return;
+    seq = Array.isArray(r.seq) ? r.seq : [];
+    entry = typeof r.entry === 'string' ? r.entry : null;
+    result = typeof r.result === 'number' ? r.result : 0;
+    repeat = r.repeat || null;
+    grey = Array.isArray(r.grey) ? r.grey : [];
+    if (r.force) Object.assign(force, r.force);
+  }
+
+  async function heal() {
+    if (healing || !frameLooksShort()) return;
+    healing = true;
+    const vp = document.querySelector('meta[name="viewport"]');
+    const sb = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+
+    const vpOrig = vp.content;
+    vp.content = vpOrig.replace(/,\s*viewport-fit=cover/, '');
+    await wait(80);
+    vp.content = vpOrig;
+    await wait(500);
+    if (!frameLooksShort()) {
+      note('viewport nudge fixed it');
+      healing = false;
+      return layout();
+    }
+    note('viewport nudge: no');
+
+    const sbOrig = sb.content;
+    sb.content = 'black-translucent';
+    await wait(80);
+    sb.content = sbOrig;
+    await wait(500);
+    if (!frameLooksShort()) {
+      note('status bar nudge fixed it');
+      healing = false;
+      return layout();
+    }
+    note('status bar nudge: no');
+
+    const s = session();
+    let last = null;
+    try { last = JSON.parse((s && s.getItem(HEAL_KEY)) || 'null'); } catch (e) { last = null; }
+    if (s && !(last && Date.now() - last.at < 15000)) {
+      s.setItem(HEAL_KEY, JSON.stringify({ at: Date.now(), log: healLog }));
+      saveResume();
+      location.reload();
+      return;
+    }
+    note('reload did not fix it');
+    healing = false;
+  }
+
+  function scheduleHeal() {
+    clearTimeout(healTimer);
+    healTimer = setTimeout(heal, 700);
+  }
+
+  // After a reload we triggered: record whether it worked (shown in the diagnostics panel).
+  function afterHealReload() {
+    const s = session();
+    let last = null;
+    try { last = JSON.parse((s && s.getItem(HEAL_KEY)) || 'null'); } catch (e) { last = null; }
+    if (!last || Date.now() - last.at > 15000) return;
+    healLog = last.log || [];
+    setTimeout(() => {
+      note(frameLooksShort() ? 'after reload: still short' : 'reload fixed it');
+    }, 400);
+  }
+
+  window.addEventListener('resize', () => { layout(); scheduleHeal(); });
   // iOS settles its sizes a little after a rotation or fold, so check again a few times.
-  const settle = () => [60, 250, 600, 1200].forEach((ms) => setTimeout(layout, ms));
+  const settle = () => {
+    [60, 250, 600, 1200].forEach((ms) => setTimeout(layout, ms));
+    setTimeout(scheduleHeal, 1300);
+  };
   window.addEventListener('orientationchange', settle);
   if (screen.orientation) screen.orientation.addEventListener('change', settle);
   if (window.visualViewport) visualViewport.addEventListener('resize', layout);
@@ -814,9 +926,12 @@
   }
 
   readOptions();
+  restoreResume();
   tell();
   render();
   layout();
+  afterHealReload();
+  scheduleHeal();
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitDisplay);
 
   // For testing from the console; not reachable from the UI.
