@@ -146,30 +146,9 @@
     };
   }
 
-  // The real height of the area the app draws in. Run from the Home Screen, iOS draws the page
-  // over the whole screen but can report a height that's short by the status bar (on the
-  // unfolded Duo about 82pt), which would leave a black band under the keypad. So in that case
-  // take the height from the screen itself: whichever screen side matches our width, the other
-  // side is our height.
-  function realHeight(W) {
-    calcEl.style.height = '';
-    let H = Math.max(calcEl.clientHeight, window.innerHeight || 0);
-    const standalone =
-      navigator.standalone === true ||
-      (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
-    const a = screen.width;
-    const b = screen.height;
-    if (standalone && a && b) {
-      if (Math.abs(W - a) <= 2) H = Math.max(H, b);
-      else if (Math.abs(W - b) <= 2) H = Math.max(H, a);
-    }
-    calcEl.style.height = H + 'px'; // let the black background reach the bottom too
-    return H;
-  }
-
   function layout() {
     const W = calcEl.clientWidth;
-    const H = realHeight(W);
+    const H = calcEl.clientHeight;
     if (!W || !H) return;
     const safe = insets();
     const { mode } = pickMode(W, H);
