@@ -66,6 +66,7 @@
 
   let lift = parseFloat(store.get(KEYS.lift)) || 0; // manual vertical nudge in pt (+ moves down)
   let blackoutSideways = store.get(KEYS.blackout) === '1';
+  let lastSize = '';
   let forcedScreen = store.get(KEYS.screen) || ''; // '', 'cover', 'inner' or 'iphone'
 
   function insets() {
@@ -183,6 +184,11 @@
 
     calcEl.classList.toggle('duo', mode !== 'iphone');
     calcEl.dataset.mode = mode;
+    const size = W + 'x' + H;
+    if (size !== lastSize) {
+      lastSize = size;
+      if (typeof note === 'function') note('size ' + size);
+    }
     calcEl.classList.toggle('blackout', blackoutSideways && W > H);
     window.scrollTo(0, 0);
     fitDisplay();
@@ -584,7 +590,7 @@
   // ----- Diagnostics (hidden) -----
   // Hold the big number for 3 seconds to show what iOS reports about the screen; hold again to
   // hide it. Coloured lines mark where each candidate "bottom of the screen" is.
-  const APP_VERSION = 'v10';
+  const APP_VERSION = 'v11';
   let diagEl = null;
   let diagTimer = null;
   function measureUnit(unit) {
@@ -617,7 +623,7 @@
       dpr: window.devicePixelRatio,
       screenSideForHeight: portrait ? sLong : sShort,
       frameShort: frameLooksShort(),
-      fixes: healLog.join(' → ') || '-',
+      log: '\n  ' + (healLog.join('\n  ') || '-'),
     };
   }
   function line(color, top, label, pos) {
@@ -644,11 +650,16 @@
     diagEl.appendChild(line('#ff4444', info.screenSideForHeight - 3 + 'px', 'red: screen height ' + info.screenSideForHeight, 'right:6px'));
     document.body.appendChild(diagEl);
   }
+  let diagRefresh = null;
   function toggleDiag() {
+    clearInterval(diagRefresh);
     if (diagEl) {
       diagEl.remove();
       diagEl = null;
-    } else showDiag();
+    } else {
+      showDiag();
+      diagRefresh = setInterval(showDiag, 1000); // keep the numbers live
+    }
   }
   displayEl.addEventListener('pointerdown', () => {
     if (force.armed) return;
@@ -788,9 +799,10 @@
     return full - window.innerHeight > 40;
   }
 
+  const t0 = performance.now();
   function note(text) {
-    healLog.push(text);
-    if (healLog.length > 8) healLog.shift();
+    healLog.push(((performance.now() - t0) / 1000).toFixed(1) + 's ' + text);
+    if (healLog.length > 10) healLog.shift();
   }
 
   function saveResume() {
