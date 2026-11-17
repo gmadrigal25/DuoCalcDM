@@ -106,6 +106,11 @@ cases:
 - **Unfolded, upright:** 5 × 4 tall capsules.
 - **Unfolded, sideways:** 5 × 4 wide capsules.
 
+**iOS rotation bug.** On the unfolded Duo, after you turn a Home Screen web app upright and
+back, iOS cuts the page off 82pt short. The app detects this and nudges iOS into redoing the
+frame, which shows as a brief flicker. Nothing in the calculation is touched. If that ever
+fails, it reloads once, keeping the display, the sum and any force in progress.
+
 The app picks the layout from the screen size every time it changes, so folding, unfolding and
 rotating re-fit it immediately without losing anything that's typed. Ordinary tall iPhones get
 the iPhone's 4 × 5 layout. If the keypad sits a little high or low on the real phone, use
@@ -123,5 +128,5 @@ Static files with no build step. Open `index.html`, or run `npm run serve`.
 - `sw.js` and `manifest.webmanifest` handle offline use and Home Screen install.
 - `icon.png` is drawn from scratch by `tools/make_icon.py` in the style of the iOS system icon. You can replace
   it with any 512×512 PNG.
-- `npm test` runs the unit tests and a Chromium run-through of a full performance at Duo-like
-  sizes, including unfolding mid-force. Screenshots go to `tests/shots/`.
+- `npm test` runs the unit tests, a Chromium run-through of a full performance at Duo-like
+  sizes (including unfolding mid-force), and a simulation of the iOS rotation bug. Screenshots go to `tests/shots/`.
