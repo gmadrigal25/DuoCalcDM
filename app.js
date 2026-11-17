@@ -590,7 +590,7 @@
   // ----- Diagnostics (hidden) -----
   // Hold the big number for 3 seconds to show what iOS reports about the screen; hold again to
   // hide it. Coloured lines mark where each candidate "bottom of the screen" is.
-  const APP_VERSION = 'v11';
+  const APP_VERSION = 'v12';
   let diagEl = null;
   let diagTimer = null;
   function measureUnit(unit) {
@@ -871,7 +871,7 @@
 
   function scheduleHeal() {
     clearTimeout(healTimer);
-    healTimer = setTimeout(heal, 700);
+    healTimer = setTimeout(heal, 250);
   }
 
   // After a reload we triggered: record whether it worked (shown in the diagnostics panel).

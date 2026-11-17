@@ -1,6 +1,6 @@
 // Offline cache. Network first: when there's a connection the app always loads the newest
 // version (and refreshes the cache); with no signal it opens from the cache instead.
-const CACHE = 'duocalc-v11';
+const CACHE = 'duocalc-v12';
 const FILES = ['./', './index.html', './style.css', './engine.js', './app.js', './manifest.webmanifest', './icon.png'];
 
 self.addEventListener('install', (e) => {
