@@ -134,14 +134,19 @@
       cols: 5, keyW, keyH, gapX, gapY, kpLeft: left, kpTop, kpWidth: W - left - right,
       font, dispTop: kpTop - m.textGap * sy - BASELINE * font,
       glyph: keyH * 0.0124, label: keyH * 0.43,
-      round: 48, roundTop: Math.max(24, safe.top),
+      // Sideways on the unfolded Duo the status bar sits in the top-right corner and is
+      // reported as a right-hand inset, which already moves the right button clear of it, so
+      // the buttons can stay at the top as in the real app.
+      round: 48, roundTop: landscape && safe.right >= 40 ? 24 : Math.max(24, safe.top),
       roundLeft: safe.left + 20, roundRight: Math.max(m.rightBtn, safe.right + 20),
     };
   }
 
   function layout() {
+    // iOS can briefly report a page shorter than the screen just after rotating; take the
+    // largest of the sizes it reports so the keypad is anchored to the real bottom edge.
     const W = calcEl.clientWidth;
-    const H = calcEl.clientHeight;
+    const H = Math.max(calcEl.clientHeight, window.innerHeight || 0);
     if (!W || !H) return;
     const safe = insets();
     const { mode } = pickMode(W, H);
@@ -683,7 +688,10 @@
 
   // Re-fit on every size change: fold, unfold, rotate, Stage Manager style resizes.
   window.addEventListener('resize', layout);
-  window.addEventListener('orientationchange', () => setTimeout(layout, 250));
+  // iOS settles its sizes a little after a rotation or fold, so check again a few times.
+  const settle = () => [60, 250, 600, 1200].forEach((ms) => setTimeout(layout, ms));
+  window.addEventListener('orientationchange', settle);
+  if (screen.orientation) screen.orientation.addEventListener('change', settle);
   if (window.visualViewport) visualViewport.addEventListener('resize', layout);
   if (window.ResizeObserver) new ResizeObserver(layout).observe(calcEl);
 

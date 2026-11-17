@@ -9,7 +9,11 @@
     />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <!-- Translucent: the page always covers the whole screen and the status bar floats over it.
+         With an opaque bar iOS shortens the page by the status bar's height, and after rotating
+         the unfolded Duo it sometimes forgets to move the page down, leaving a black bar at the
+         bottom. The layout keeps clear of the status bar using the safe-area insets instead. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Calculator" />
     <meta name="theme-color" content="#000000" />
     <meta name="format-detection" content="telephone=no" />

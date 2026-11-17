@@ -48,6 +48,8 @@ controls exactly as Dave Mason designed them.
    the Duo, then **Share → Add to Home Screen**, and name it **Calculator**. The Home Screen
    name stays "Calculator" so it passes as the real app.
 3. Launch it once from the Home Screen while online so it caches. After that it works offline.
+   If you added an earlier version, delete it and add it again. iOS only reads some settings
+   (the icon and the status bar style) when you add the app.
 4. Turn **Rotation Lock** on. The real Calculator switches to scientific mode when it's turned
    sideways, but this one doesn't.
 
