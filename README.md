@@ -70,9 +70,9 @@ This follows the latest CalcDM, with the improvements by Dave Mason and Demian M
 2. **The spectator does real maths.** Every step is genuine and can be checked on another
    calculator.
 3. **Watch the two specks.** After the first calculation or operator press, two tiny white
-   specks appear just below the keys:
-   - one under **+** or **−**, showing which way gets to the force number;
-   - one under a **digit key** (1 to 9), showing how many digits the final number needs.
+   specks appear, each on a key just below its symbol and a little to the right, like dust:
+   - one on **+** or **−**, showing which way gets to the force number;
+   - one on a **digit key** (1 to 9), showing how many digits the final number needs.
 
    For example, with a force number of 123,456: a total of 26,331 puts them under **+** and
    **5** (26,331 + 97,125), and a total of 829,771 puts them under **−** and **6**
@@ -81,8 +81,10 @@ This follows the latest CalcDM, with the improvements by Dave Mason and Demian M
    you set the number, when the total already equals it, or when more than 9 digits would be
    needed. For a decimal, only the digits count: 12.34 shows under **4** but takes five taps.
    *Optional:* hold any operator to see the exact number that would be needed after it.
-4. **Arm it.** Tap the operator the speck shows **twice**. The specks disappear. The wrong one
-   won't arm: if − is needed, + + does nothing, and vice versa.
+4. **Arm it.** Tap the operator the speck shows **twice**. The specks disappear. Only that
+   operator arms: if − is needed, + + does nothing, and vice versa, and × and ÷ never arm. This
+   works the same with the specks hidden (hold an operator to check: the number shown is
+   negative on the wrong one).
 5. **The spectator drums their fingers.** Every separate tap, anywhere, types the next
    character of the needed number, and that digit's key lights up as it appears. No key keeps
    its usual job, not even delete. Two or three fingers landing together count as one tap. When
@@ -110,8 +112,7 @@ All of these work only before the force is armed, so they can't interfere with t
 | 6 o'clock | Final number complete, ready for = |
 
 The clock and calculator buttons look and work the same on every screen, folded or unfolded,
-so the method is identical either way. After all the digits are in, **C** abandons the force
-but keeps the number set.
+so the method is identical either way. Once all the digits are in, only **=** does anything.
 
 ### URL options (for example from an iOS Shortcut)
 

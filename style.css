@@ -199,18 +199,24 @@ button svg {
 .key.num.flash { background: var(--num-press); transition: none; }
 .key.num[data-key="."].flash { background: var(--num-press); }
 
-/* Indicator specks: deliberately tiny and off centre, like flecks of dust */
-.speck {
+/* Indicator specks: with a force number set, a speck on + or − shows which one reaches it, and
+   one on a digit key shows how many digits that takes. Each sits just below the key's symbol, a
+   little right of centre, with its own spot, size and shape (set in app.js), so it looks like
+   dust rather than a mark. Sizes are points on an 84.25pt key, scaled by --ks. */
+.key { position: relative; }
+.key.speck-on::after {
+  content: "";
   position: absolute;
-  width: 2.4px;
-  height: 2.4px;
-  margin-left: -1.2px;
-  border-radius: 50%;
-  background: #fff;
-  opacity: 0.8;
+  left: calc(50% + var(--speck-dx, 6.7) * var(--ks, 1) * 1px);
+  top: calc(50% + var(--speck-dy, 25.3) * var(--ks, 1) * 1px);
+  width: calc(var(--speck-size, 1.6) * max(var(--ks, 1), 0.7) * 1px);
+  height: calc(var(--speck-size, 1.6) * max(var(--ks, 1), 0.7) * 1px);
+  border-radius: var(--speck-shape, 50%);
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 0 calc(0.5px * var(--ks, 1)) rgba(255, 255, 255, 0.35);
+  transform: translate(-50%, -50%) rotate(var(--speck-rot, 0deg));
   pointer-events: none;
 }
-.speck[hidden] { display: none; }
 .key.num:not([data-key="negate"]), .key[data-key="clear"] { padding-bottom: calc(1px * var(--s)); }
 .key[data-key="bs"] svg { transform: translateX(calc(-1px * var(--s))); }
 

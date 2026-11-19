@@ -16,7 +16,6 @@
   const clockBtn = $('clockBtn');
   const modeBtn = $('modeBtn');
   const minuteHand = $('minuteHand');
-  const specks = { op: $('speckOp'), digits: $('speckDigits') };
 
   const HOLD_MS = 700;
   const FLASH_MS = 160;
@@ -157,6 +156,7 @@
     const exprFont = 0.42 * g.font;
     const vars = {
       '--s': g.glyph.toFixed(4),
+      '--ks': (g.keyH / 84.25).toFixed(4),
       '--rs': (g.round / 44).toFixed(4),
       '--cols': g.cols,
       '--key-w': g.keyW + 'px',
@@ -208,6 +208,21 @@
   let result = 0;
   let repeat = null;
   let grey = [];
+  // Each hint key's speck sits on the key just below the symbol, a little right of centre, with
+  // a slightly different spot, size and shape per key so it reads as dust rather than a mark.
+  // Chosen once per launch so a speck doesn't move between presses. Units are points on an
+  // 84.25pt key; the stylesheet scales them to the actual key height.
+  const between = (a, b) => a + Math.random() * (b - a);
+  keypad.querySelectorAll('.key').forEach((key) => {
+    if (!/^[1-9+-]$/.test(key.dataset.key)) return;
+    const corner = () => between(35, 65).toFixed(0) + '%';
+    key.style.setProperty('--speck-dx', between(4.2, 10.1).toFixed(1));
+    key.style.setProperty('--speck-dy', between(23.6, 27.8).toFixed(1));
+    key.style.setProperty('--speck-size', between(1.4, 1.9).toFixed(2));
+    key.style.setProperty('--speck-shape', [corner(), corner(), corner(), corner()].join(' '));
+    key.style.setProperty('--speck-rot', between(0, 180).toFixed(0) + 'deg');
+  });
+
   // Number format comes from the version installed: American (1,234.56) unless the page says
   // otherwise with <html data-region="...">. UK and European/Brazilian versions come later.
   const REGION = document.documentElement.dataset.region || 'us';
@@ -457,10 +472,11 @@
     return chars;
   }
 
-  // An operation can arm only if the number it needs is a real, positive number.
+  // Only the operator the speck points to can arm (+ or −, never × or ÷), so the final sum
+  // always really reaches the force number. This works the same with the specks hidden.
   function canArm(op) {
-    const q = neededFor(op);
-    return Number.isFinite(q) && q > 0;
+    const g = computeDots(true);
+    return g !== null && g.op === op;
   }
 
   function arm() {
@@ -496,14 +512,17 @@
 
   function computeDots() {
     if (force.target === null || force.armed) return null;
-    for (const op of ['+', '-']) {
-      const q = neededFor(op);
-      if (Number.isFinite(q) && q > 0) {
-        const count = forcedChars(q).replace(/\D/g, '').length;
-        return count >= 1 && count <= E.MAX_DIGITS ? { op, count } : null;
-      }
-    }
-    return null; // already on target
+    const need = neededFor('+');
+    if (!Number.isFinite(need) || need === 0) return null; // already on target
+    const op = need > 0 ? '+' : '-';
+    const q = Math.abs(need);
+    const plain = E.plainString(q);
+    if (plain === null) return null;
+    const count = forcedChars(q).replace(/\D/g, '').length;
+    if (count < 1 || count > E.MAX_DIGITS) return null;
+    // Only if typing that number after the operator really lands on the force number.
+    if (E.round9(E.evaluate(prospectiveSeq(op).concat([parseFloat(plain)]))) !== force.target) return null;
+    return { op, count };
   }
 
   function updateDots() {
@@ -516,18 +535,14 @@
     placeDots();
   }
 
-  // Put each speck just under its key, a little off centre, so it reads as a fleck of dust.
+  // Mark the two hint keys; the stylesheet draws a speck on each.
   function placeDots() {
-    const show = dotsOn && dotState !== null;
-    for (const el of [specks.op, specks.digits]) el.hidden = !show;
-    if (!show) return;
-    const at = (el, key, dx) => {
+    keypad.querySelectorAll('.speck-on').forEach((k) => k.classList.remove('speck-on'));
+    if (!dotsOn || dotState === null) return;
+    for (const key of [dotState.op, String(dotState.count)]) {
       const k = keypad.querySelector('[data-key="' + key + '"]');
-      el.style.left = k.offsetLeft + k.offsetWidth * dx + 'px';
-      el.style.top = k.offsetTop + k.offsetHeight + 2 + 'px';
-    };
-    at(specks.op, dotState.op, 0.62);
-    at(specks.digits, String(dotState.count), 0.38);
+      if (k) k.classList.add('speck-on');
+    }
   }
 
   function setDotsOn(on) {
@@ -553,8 +568,7 @@
   function press(key) {
     if (force.armed) {
       if (!digitsComplete()) return; // every tap, on any key, types the spectator's number
-      if (key === '=') return finishForce();
-      if (key === 'clear') return allClear(); // abandon; the force number stays set
+      if (key === '=') return finishForce(); // once complete, only = does anything
       return;
     }
     switch (key) {
