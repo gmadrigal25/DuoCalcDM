@@ -74,17 +74,30 @@ const size = ({ width, height }) => ({ width, height });
   s = await state();
   assert.strictEqual(s.force.target, 77, 'touch-and-hold on the clock sets the number');
   assert.strictEqual(s.text, '0', 'display clears after touch hold');
-  // A short touch on the clock does nothing.
+  // One quick tap on the clock also sets it (the new one-tap setup).
   await type('5');
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pt });
   await page.waitForTimeout(150);
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  assert.strictEqual((await state()).force.target, 77, 'short touch leaves it alone');
-  await key('clear');
+  s = await state();
+  assert.strictEqual(s.force.target, 5, 'one tap on the clock sets the number');
+  assert.strictEqual(s.text, '0', 'display clears after one tap');
+  // A tap with 0 on screen changes nothing.
+  await page.click('#clockBtn');
+  assert.strictEqual((await state()).force.target, 5, 'tap with 0 on screen keeps the number');
   await type('2026');
-  await hold('#clockBtn'); await page.mouse.up();
-  assert.strictEqual((await state()).force.target, 2026);
+  await page.click('#clockBtn');
+  s = await state();
+  assert.strictEqual(s.force.target, 2026);
   assert.strictEqual(s.text, '0', 'display cleared as confirmation');
+  assert.strictEqual(await page.evaluate(() => window.__calc.dots()), null, 'no specks right after setting');
+
+  // Hold . to peek at the force number
+  await hold('[data-key="."]');
+  assert.strictEqual((await state()).text, '2,026', 'hold . peeks');
+  await page.mouse.up();
+  await page.waitForTimeout(50);
+  assert.strictEqual((await state()).text, '0', 'peek ends, . not typed');
 
   const mb = await page.locator('#modeBtn').boundingBox();
   const mpt = [{ x: mb.x + mb.width / 2, y: mb.y + mb.height / 2 }];
@@ -96,8 +109,27 @@ const size = ({ width, height }) => ({ width, height });
   assert.strictEqual((await state()).text, '0', 'peek ends on release');
 
   // Spectator's genuine calculation
-  await type('347'); await key('+'); await type('589'); await key('=');
+  await type('347'); await key('+');
+  assert.deepStrictEqual(await page.evaluate(() => window.__calc.dots()), { op: '+', count: 4 },
+    'specks after an operator: 347 → + a 4-digit number');
+  await type('589');
+  assert.deepStrictEqual(await page.evaluate(() => window.__calc.dots()), { op: '+', count: 4 },
+    'specks unchanged while digits are typed');
+  await key('=');
   assert.strictEqual((await state()).text, '936');
+  assert.deepStrictEqual(await page.evaluate(() => window.__calc.dots()), { op: '+', count: 4 }, '936 → +1090');
+  const speck = await page.evaluate(() => {
+    const r = (el) => el.getBoundingClientRect();
+    const sp = r(document.getElementById('speckOp'));
+    const plus = r(document.querySelector('[data-key="+"]'));
+    const dg = r(document.getElementById('speckDigits'));
+    const four = r(document.querySelector('[data-key="4"]'));
+    return {
+      opUnderPlus: sp.left > plus.left && sp.right < plus.right && sp.top >= plus.bottom - 1,
+      digitsUnderFour: dg.left > four.left && dg.right < four.right && dg.top >= four.bottom - 1,
+    };
+  });
+  assert.deepStrictEqual(speck, { opUnderPlus: true, digitsUnderFour: true }, 'specks sit under + and 4');
 
   // Peek the needed number by holding +
   await hold('[data-key="+"]');
@@ -106,10 +138,14 @@ const size = ({ width, height }) => ({ width, height });
   await page.waitForTimeout(50);
   assert.strictEqual((await state()).text, '936', 'display restored, + not pressed');
 
+  // Wrong way can't arm: − − does nothing when + is needed
+  await key('-'); await key('-');
+  assert.strictEqual((await state()).force.armed, false, '− − does not arm when + is needed');
   // Arm with + +
   await key('+'); await key('+');
   s = await state();
   assert.ok(s.force.armed && s.force.digits === '1090', 'armed with 1090');
+  assert.strictEqual(await page.evaluate(() => window.__calc.dots()), null, 'specks gone once armed');
   await page.screenshot({ path: path.join(shots, 'armed-folded.png') });
 
   // Spectator taps randomly; unfold halfway through
@@ -134,18 +170,49 @@ const size = ({ width, height }) => ({ width, height });
   assert.strictEqual(s.force.target, null, 'force cleared after reveal');
   await page.screenshot({ path: path.join(shots, 'reveal-unfolded.png') });
 
-  // --- Subtraction, backspace during feed ---
-  await type('500'); await hold('#clockBtn'); await page.mouse.up();
-  await type('9000'); await key('-'); await key('-');
-  await tapAt(200, 300);
+  // --- Subtraction; once armed even delete types a digit; keys flash ---
+  await type('500'); await page.click('#clockBtn');
+  await type('9000'); await key('-');
+  assert.deepStrictEqual(await page.evaluate(() => window.__calc.dots()), { op: '-', count: 4 }, '9000 → −8500');
+  await key('+'); await key('+');
+  assert.strictEqual((await state()).force.armed, false, '+ + does not arm when − is needed');
+  await key('-'); await key('-');
+  assert.strictEqual((await state()).force.armed, true);
+  const flashed = await page.evaluate(() => {
+    window.__calc.tap();
+    return document.querySelector('[data-key="8"]').classList.contains('flash');
+  });
+  assert.strictEqual(flashed, true, 'forced 8 lights the 8 key');
   await tapAt(200, 300);
   await key('bs');
-  assert.strictEqual((await state()).text, '9,000−8');
-  await tapAt(200, 300);
-  await tapAt(200, 300);
+  await page.waitForTimeout(90);
+  assert.strictEqual((await state()).text, '9,000−850', 'delete typed the next digit');
   await tapAt(200, 300);
   await key('=');
   assert.strictEqual((await state()).text, '500');
+
+  // --- The article's examples: force 123,456 ---
+  await page.evaluate(() => window.__calc.setTarget(123456));
+  await type('26331'); await key('=');
+  assert.deepStrictEqual(await page.evaluate(() => window.__calc.dots()), { op: '+', count: 5 }, '26,331 → + 5 digits');
+  await key('clear'); await type('829771'); await key('=');
+  assert.deepStrictEqual(await page.evaluate(() => window.__calc.dots()), { op: '-', count: 6 }, '829,771 → − 6 digits');
+
+  // Hold % hides the specks (remembered); a tap on % still works
+  await hold('[data-key="percent"]'); await page.mouse.up();
+  assert.strictEqual(await page.evaluate(() => window.__calc.dots()), null, 'hold % hides specks');
+  assert.strictEqual(await page.isHidden('#speckOp'), true);
+  assert.strictEqual((await state()).text, '829,771', 'hold % did not apply %');
+  await hold('[data-key="percent"]'); await page.mouse.up();
+  assert.deepStrictEqual(await page.evaluate(() => window.__calc.dots()), { op: '-', count: 6 }, 'hold % again shows them');
+
+  // Hold delete: complete reset, clock back to 3 o'clock
+  await hold('[data-key="bs"]'); await page.mouse.up();
+  s = await state();
+  assert.strictEqual(s.force.target, null, 'hold delete clears the force number');
+  assert.strictEqual(s.text, '0', 'and the display');
+  assert.strictEqual(await page.evaluate(() => document.getElementById('minuteHand').style.transform),
+    'rotate(0deg)', 'clock back to 3 o\'clock');
 
   // --- Ordinary maths still works ---
   await key('clear');

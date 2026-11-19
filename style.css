@@ -124,23 +124,6 @@ button svg {
   height: calc(var(--h) * var(--rs) * 1px);
 }
 
-.toast {
-  position: absolute;
-  top: calc(var(--round-top) + var(--round) / 2);
-  left: 50%;
-  transform: translate(-50%, -50%);
-  padding: 0 calc(12px * var(--s));
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--grey-text);
-  font-size: calc(14px * var(--s));
-  line-height: calc(26px * var(--s));
-  white-space: nowrap;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.25s ease-out;
-}
-.toast.show { opacity: 1; }
 
 /* Keypad: 4 x 5. Keys are circles when width allows, and stretch into capsules on
    short-and-wide screens like the Duo's, the way iPad and foldable layouts do. */
@@ -212,6 +195,22 @@ button svg {
 .key.num.pressed { background: var(--num-press); }
 .key.fn.pressed  { background: var(--fn-press); }
 .key.op.pressed  { background: var(--orange-press); }
+/* A forced digit lights its key, as if pressed */
+.key.num.flash { background: var(--num-press); transition: none; }
+.key.num[data-key="."].flash { background: var(--num-press); }
+
+/* Indicator specks: deliberately tiny and off centre, like flecks of dust */
+.speck {
+  position: absolute;
+  width: 2.4px;
+  height: 2.4px;
+  margin-left: -1.2px;
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0.8;
+  pointer-events: none;
+}
+.speck[hidden] { display: none; }
 .key.num:not([data-key="negate"]), .key[data-key="clear"] { padding-bottom: calc(1px * var(--s)); }
 .key[data-key="bs"] svg { transform: translateX(calc(-1px * var(--s))); }
 

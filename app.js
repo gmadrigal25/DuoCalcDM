@@ -16,15 +16,14 @@
   const clockBtn = $('clockBtn');
   const modeBtn = $('modeBtn');
   const minuteHand = $('minuteHand');
-  const toastEl = $('toast');
+  const specks = { op: $('speckOp'), digits: $('speckDigits') };
 
   const HOLD_MS = 700;
-  const DOUBLE_TAP_MS = 400;
-  const TOAST_MS = 1400;
+  const FLASH_MS = 160;
   const MIN_TEXT_SCALE = 0.75;
   const KEYS = {
     target: 'duocalc.target',
-    format: 'duocalc.format',
+    dots: 'duocalc.dots',
     lift: 'duocalc.lift',
     blackout: 'duocalc.blackout',
     screen: 'duocalc.screen',
@@ -190,6 +189,7 @@
       if (typeof note === 'function') note('size ' + size);
     }
     calcEl.classList.toggle('blackout', blackoutSideways && W > H);
+    placeDots();
     window.scrollTo(0, 0);
     fitDisplay();
   }
@@ -208,7 +208,11 @@
   let result = 0;
   let repeat = null;
   let grey = [];
-  let euro = store.get(KEYS.format) === 'eu';
+  // Number format comes from the version installed: American (1,234.56) unless the page says
+  // otherwise with <html data-region="...">. UK and European/Brazilian versions come later.
+  const REGION = document.documentElement.dataset.region || 'us';
+  const euro = REGION === 'eu';
+  let dotsOn = store.get(KEYS.dots) !== 'off';
 
   const force = {
     target: null, // the number to force, or null
@@ -269,6 +273,7 @@
     repeat = null;
     grey = [];
     disarm();
+    hideDots();
     render();
   }
 
@@ -294,9 +299,10 @@
     repeat = null;
     grey = [];
     if (entry === null && E.isOp(lastOf(seq))) {
-      // The same operator again with nothing typed in between arms the force.
+      // The same operator again with nothing typed in between arms the force, but only if
+      // that operation can really reach the force number (so + won't arm when it needs −).
       if (lastOf(seq) === op && force.target !== null && !force.armed) {
-        arm();
+        if (canArm(op)) arm();
         return;
       }
       seq[seq.length - 1] = op; // otherwise it just swaps the pending operator
@@ -305,6 +311,7 @@
     }
     entry = null;
     render();
+    updateDots();
   }
 
   function equals() {
@@ -325,6 +332,7 @@
     seq = [];
     entry = null;
     render();
+    updateDots();
   }
 
   function negate() {
@@ -409,12 +417,14 @@
     if (!Number.isFinite(n)) return clearTarget();
     force.target = E.round9(n);
     store.set(KEYS.target, String(force.target));
+    hideDots(); // they appear after the next calculation or operator
     tell();
   }
 
   function clearTarget() {
     force.target = null;
     store.remove(KEYS.target);
+    hideDots();
     tell();
   }
 
@@ -440,29 +450,90 @@
     return E.round9(E.solveOperand(prospectiveSeq(op), force.target));
   }
 
+  // The characters the spectator's taps will type for a needed number q, e.g. "1090" or ".5".
+  function forcedChars(q) {
+    let chars = E.plainString(Math.abs(q)) ?? '0';
+    if (chars.startsWith('0.')) chars = chars.slice(1); // "." types "0." in one tap
+    return chars;
+  }
+
+  // An operation can arm only if the number it needs is a real, positive number.
+  function canArm(op) {
+    const q = neededFor(op);
+    return Number.isFinite(q) && q > 0;
+  }
+
   function arm() {
-    const q = E.round9(E.solveOperand(seq, force.target));
-    let digits = E.plainString(Math.abs(q)) ?? '0';
-    if (digits.startsWith('0.')) digits = digits.slice(1); // "." types "0." in one tap
-    force.digits = digits;
+    force.digits = forcedChars(E.solveOperand(seq, force.target));
     force.fed = 0;
     force.armed = true;
+    hideDots();
     tell();
   }
 
   function feedDigit() {
     if (digitsComplete()) return;
-    typeDigit(force.digits[force.fed++], true);
+    const ch = force.digits[force.fed++];
+    typeDigit(ch, true);
+    flashKey(ch);
     tell();
   }
 
-  // Backspace while armed removes the last fed digit; the next tap types it again.
-  function forceBackspace() {
-    if (force.fed === 0 || entry === null) return;
-    force.fed--;
-    entry = force.fed === 0 ? null : entry.slice(0, -1);
-    render();
-    tell();
+  // Light up the key for a forced digit, as if it had been pressed.
+  function flashKey(ch) {
+    const k = keypad.querySelector('[data-key="' + ch + '"]');
+    if (!k) return;
+    k.classList.add('flash');
+    setTimeout(() => k.classList.remove('flash'), FLASH_MS);
+  }
+
+  // ----- The indicator specks -----
+  // One speck under + or − shows which way the force number lies; one under a digit key shows
+  // how many digits the final number needs (decimal point not counted). They update on = and
+  // operator presses, not while digits are typed, and are hidden right after the number is set,
+  // when already on target, when more than 9 digits would be needed, and once armed.
+  let dotState = null; // { op: '+' | '-', count }
+
+  function computeDots() {
+    if (force.target === null || force.armed) return null;
+    for (const op of ['+', '-']) {
+      const q = neededFor(op);
+      if (Number.isFinite(q) && q > 0) {
+        const count = forcedChars(q).replace(/\D/g, '').length;
+        return count >= 1 && count <= E.MAX_DIGITS ? { op, count } : null;
+      }
+    }
+    return null; // already on target
+  }
+
+  function updateDots() {
+    dotState = computeDots();
+    placeDots();
+  }
+
+  function hideDots() {
+    dotState = null;
+    placeDots();
+  }
+
+  // Put each speck just under its key, a little off centre, so it reads as a fleck of dust.
+  function placeDots() {
+    const show = dotsOn && dotState !== null;
+    for (const el of [specks.op, specks.digits]) el.hidden = !show;
+    if (!show) return;
+    const at = (el, key, dx) => {
+      const k = keypad.querySelector('[data-key="' + key + '"]');
+      el.style.left = k.offsetLeft + k.offsetWidth * dx + 'px';
+      el.style.top = k.offsetTop + k.offsetHeight + 2 + 'px';
+    };
+    at(specks.op, dotState.op, 0.62);
+    at(specks.digits, String(dotState.count), 0.38);
+  }
+
+  function setDotsOn(on) {
+    dotsOn = on;
+    store.set(KEYS.dots, on ? 'on' : 'off');
+    placeDots();
   }
 
   function finishForce() {
@@ -481,8 +552,7 @@
   // ======================================================================
   function press(key) {
     if (force.armed) {
-      if (key === 'bs') return forceBackspace();
-      if (!digitsComplete()) return; // taps are typing the spectator's number
+      if (!digitsComplete()) return; // every tap, on any key, types the spectator's number
       if (key === '=') return finishForce();
       if (key === 'clear') return allClear(); // abandon; the force number stays set
       return;
@@ -500,7 +570,7 @@
   }
 
   // While armed, every tap gesture anywhere types the next digit: one digit per gesture
-  // however many fingers land. Backspace is the exception.
+  // however many fingers land. No key keeps its usual job, not even delete.
   const pointers = new Set();
   let gestureFed = false;
   let lastFeedAt = -Infinity;
@@ -510,7 +580,6 @@
     if (!idle) return;
     gestureFed = false;
     if (!force.armed || digitsComplete()) return;
-    if (e.target.closest && e.target.closest('[data-key="bs"]')) return;
     const now = performance.now();
     if (now - lastFeedAt < 60) return; // two fingers landing a hair apart = one tap
     lastFeedAt = now;
@@ -551,30 +620,50 @@
     press(k.dataset.key);
   });
 
-  // Hold an operator (force number set, not armed): the display shows the number the spectator
-  // would need after that operator. Letting go restores it and doesn't press the operator.
-  let opHoldTimer = null;
-  let opPeeking = false;
+  // Secret holds on keys (all disabled once armed). Letting go never presses the key.
+  //   Hold an operator   show the number the spectator would need after it
+  //   Hold .             peek at the force number
+  //   Hold delete        complete reset: force number cleared, clock back to 3 o'clock
+  //   Hold %             turn the indicator specks off / on (remembered)
+  let keyHoldTimer = null;
+  let keyHoldFired = false;
+  let holdPeeking = false;
   keypad.addEventListener('pointerdown', (e) => {
-    const k = e.target.closest && e.target.closest('.key.op');
-    if (!k || !(k.dataset.key in E.PREC) || force.target === null || force.armed) return;
-    const op = k.dataset.key;
-    clearTimeout(opHoldTimer);
-    opHoldTimer = setTimeout(() => {
-      opPeeking = true;
-      peek(neededFor(op));
+    const k = keyOf(e);
+    if (!k || force.armed) return;
+    const key = k.dataset.key;
+    let action = null;
+    if (key in E.PREC) {
+      if (force.target === null) return;
+      action = () => { holdPeeking = true; peek(neededFor(key)); };
+    } else if (key === '.') {
+      if (force.target === null) return;
+      action = () => { holdPeeking = true; peek(force.target); };
+    } else if (key === 'bs') {
+      action = () => { clearTarget(); allClear(); };
+    } else if (key === 'percent') {
+      action = () => setDotsOn(!dotsOn);
+    } else return;
+    clearTimeout(keyHoldTimer);
+    keyHoldFired = false;
+    keyHoldTimer = setTimeout(() => {
+      keyHoldFired = true;
+      action();
     }, HOLD_MS);
   });
-  const endOpHold = () => {
-    clearTimeout(opHoldTimer);
-    opHoldTimer = null;
-    if (!opPeeking) return;
-    opPeeking = false;
+  const endKeyHold = () => {
+    clearTimeout(keyHoldTimer);
+    keyHoldTimer = null;
+    if (!keyHoldFired) return;
+    keyHoldFired = false;
     swallowClick = true;
     setTimeout(() => { swallowClick = false; }, 300);
-    render();
+    if (holdPeeking) {
+      holdPeeking = false;
+      render();
+    }
   };
-  ['pointerup', 'pointercancel', 'pointerout'].forEach((t) => keypad.addEventListener(t, endOpHold));
+  ['pointerup', 'pointercancel', 'pointerout'].forEach((t) => keypad.addEventListener(t, endKeyHold));
 
   // Swipe sideways on the number to delete a digit, as on iOS.
   let swipeFrom = null;
@@ -640,48 +729,28 @@
     btn.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') end(false); });
   }
 
-  // Clock: hold to make the number on screen the force number (the display clears).
-  // Hold with 0 on screen to clear it.
+  // Clock: one tap makes the number on screen the force number (the display clears and the
+  // hand swings to 9). Holding works too, as in the earlier version; a hold with 0 on screen
+  // clears the force number.
+  function saveTargetFromDisplay(clearIfZero) {
+    if (force.armed) return;
+    const v = currentValue();
+    if (v !== 0 && Number.isFinite(v)) setTarget(v);
+    else if (clearIfZero) clearTarget();
+    else return;
+    allClear();
+  }
   holdable(clockBtn, {
-    onHold() {
-      if (force.armed) return;
-      const v = currentValue();
-      if (v !== 0 && Number.isFinite(v)) setTarget(v);
-      else clearTarget();
-      allClear();
-    },
+    onTap: () => saveTargetFromDisplay(false),
+    onHold: () => saveTargetFromDisplay(true),
   });
 
-  let toastTimer = null;
-  function toast(text) {
-    toastEl.textContent = text;
-    toastEl.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toastEl.classList.remove('show'), TOAST_MS);
-  }
-
-  function toggleFormat() {
-    if (force.armed) return;
-    euro = !euro;
-    store.set(KEYS.format, euro ? 'eu' : 'us');
-    render();
-    toast(euro ? 'European · 1.234,56' : 'US · 1,234.56');
-  }
-
-  // Calculator icon: hold to peek at the force number; double-tap to switch number format.
-  let lastModeTap = -Infinity;
+  // Calculator icon: hold to peek at the force number (holding . does the same).
   holdable(modeBtn, {
     onHold() {
       if (!force.armed && force.target !== null) peek(force.target);
     },
     onLetGo: render,
-    onTap() {
-      const now = performance.now();
-      if (now - lastModeTap < DOUBLE_TAP_MS) {
-        lastModeTap = -Infinity;
-        toggleFormat();
-      } else lastModeTap = now;
-    },
   });
 
   // No zooming, callouts or text selection.
@@ -698,7 +767,7 @@
     const key = map[e.key] || e.key;
     if (/^[0-9.+\-*/=]$/.test(key) || key === 'clear' || key === 'percent' || key === 'bs') {
       e.preventDefault();
-      if (force.armed && !digitsComplete() && key !== 'bs') feedDigit();
+      if (force.armed && !digitsComplete()) feedDigit();
       else press(key);
     }
   });
@@ -882,6 +951,7 @@
     layout,
     mode: () => calcEl.dataset.mode,
     log: () => healLog.slice(),
+    dots: () => (dotsOn && dotState ? { ...dotState } : null),
     state: () => ({ seq: seq.slice(), entry, result, grey: grey.slice(), force: { ...force }, text: textEl.textContent, greyText: exprTextEl.textContent }),
   };
 })();

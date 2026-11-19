@@ -15,6 +15,10 @@ middle of the routine. It also works on ordinary iPhones.
 - **[Dave Mason](https://github.com/dmaso)** created [CalcDM](https://github.com/dmaso/calcdm)
   ([calcdm.com](https://calcdm.com)), the app and forcing method this is based on. All credit
   for the idea and how it works goes to him.
+- **Demian Max** collaborated with Dave on CalcDM's later improvements: the one-tap setup, the
+  digit-count indicator, the lit-up keys and the idea of showing whether to add or subtract.
+  Dave developed the indicators so they stay visible throughout, and added the option to hide
+  them.
 - **[The Jerx](https://www.thejerx.com)** published
   [The Alright Force](https://www.thejerx.com/blog/2026/9/15/the-alright-force), the routine this
   is built for. Earlier background:
@@ -39,6 +43,9 @@ controls exactly as Dave Mason designed them.
 - The clock hand swings between positions rather than jumping, and holding the clock and
   calculator buttons is protected against iOS long-press gestures.
 - `?screen=` and `?lift=` URL options, for adjusting the layout on the phone.
+- Includes the later CalcDM improvements by Dave Mason and Demian Max: one-tap setup, peek on
+  the decimal key, reset on delete, the indicator specks, lit-up keys and wrong-operator
+  protection.
 
 ## Install on the phone
 
@@ -55,36 +62,56 @@ controls exactly as Dave Mason designed them.
 
 ## Performing
 
-1. **Set the force number.** Type it, then **hold the clock** (top left) for about a second. The
-   display clears and the clock's minute hand moves to **9 o'clock**. Hold the **calculator icon**
-   (top right) at any time to peek at the number.
+This follows the latest CalcDM, with the improvements by Dave Mason and Demian Max.
+
+1. **Set the force number.** Type it and **tap the clock** (top left) once. The display clears
+   and the minute hand swings to **9 o'clock**. The number is remembered even if you close the
+   app.
 2. **The spectator does real maths.** Every step is genuine and can be checked on another
    calculator.
-3. **Arm it.** For the final step, press an operator **twice**: **+** if the total is below
-   your number, **−** if it's above. **×** and **÷** work when the force number is a clean
-   multiple or fraction of the total. Nothing visible changes.
-   *Not sure which to use?* Hold any operator for a second and the display shows the number the
-   spectator would need to enter. Let go and the display goes back to normal. The operator isn't
-   pressed.
-4. **Every tap anywhere types the next digit** of the number that's needed. The spectator can
-   drum their fingers anywhere, or tap with the phone face down. Two or three fingers landing
-   together count as one tap. When every digit is in, the minute hand moves to **6 o'clock**,
-   and further taps do nothing. **Backspace** still deletes a digit, and the next tap re-types it.
-   You can fold or unfold the phone in the middle of this.
-5. **Press =**. The force number appears, with a believable sum in grey above it. The force
-   number then clears itself, and the hand returns to 3 o'clock.
+3. **Watch the two specks.** After the first calculation or operator press, two tiny white
+   specks appear just below the keys:
+   - one under **+** or **−**, showing which way gets to the force number;
+   - one under a **digit key** (1 to 9), showing how many digits the final number needs.
 
-The clock and calculator buttons look and work the same on every screen, folded or
-unfolded, so the method is identical either way.
+   For example, with a force number of 123,456: a total of 26,331 puts them under **+** and
+   **5** (26,331 + 97,125), and a total of 829,771 puts them under **−** and **6**
+   (829,771 − 706,315). They update when = or an operator is pressed, not while digits are
+   typed, so you can keep calculating until the length suits you. They don't show right after
+   you set the number, when the total already equals it, or when more than 9 digits would be
+   needed. For a decimal, only the digits count: 12.34 shows under **4** but takes five taps.
+   *Optional:* hold any operator to see the exact number that would be needed after it.
+4. **Arm it.** Tap the operator the speck shows **twice**. The specks disappear. The wrong one
+   won't arm: if − is needed, + + does nothing, and vice versa.
+5. **The spectator drums their fingers.** Every separate tap, anywhere, types the next
+   character of the needed number, and that digit's key lights up as it appears. No key keeps
+   its usual job, not even delete. Two or three fingers landing together count as one tap. When
+   every digit is in, the hand moves to **6 o'clock** and further taps do nothing. You can fold
+   or unfold the phone in the middle of this.
+6. **Press =**. The force number appears, with a sum in grey above it that really adds up. The
+   force number then clears itself and the hand returns to 3 o'clock.
 
-Other details:
+### Secret controls
 
-- Hold the clock while the display shows **0** to clear the force number.
-- After all the digits are in, **C** abandons the force but keeps the number set.
-- If you choose an operator that doesn't land cleanly (for example **+** when the total is
-  already above your number), = still shows the force number, but the sum won't add up. The hold
-  peek warns you by showing a minus sign.
-- **Double-tap** the calculator icon to switch between `1,234.56` and `1.234,56`.
+All of these work only before the force is armed, so they can't interfere with the drumming.
+
+| Do this | What happens |
+| --- | --- |
+| Tap the clock | Save the number on screen as the force number (hand to 9 o'clock) |
+| Hold **.** | Peek at the force number while held (holding the calculator icon does the same) |
+| Hold **⌫** | Complete reset: force number cleared, hand back to 3 o'clock |
+| Hold **%** | Turn the specks off or on (remembered). A normal tap on % still works. |
+| Hold an operator | Show the number needed after that operator |
+
+| Clock hand | Meaning |
+| --- | --- |
+| 3 o'clock | No force number stored |
+| 9 o'clock | Force number stored |
+| 6 o'clock | Final number complete, ready for = |
+
+The clock and calculator buttons look and work the same on every screen, folded or unfolded,
+so the method is identical either way. After all the digits are in, **C** abandons the force
+but keeps the number set.
 
 ### URL options (for example from an iOS Shortcut)
 
