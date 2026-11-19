@@ -1,7 +1,13 @@
 // Offline cache. Network first: when there's a connection the app always loads the newest
 // version (and refreshes the cache); with no signal it opens from the cache instead.
-const CACHE = 'duocalc-v15';
-const FILES = ['./', './index.html', './style.css', './engine.js', './app.js', './manifest.webmanifest', './icon.png'];
+const CACHE = 'duocalc-v16';
+const FILES = [
+  './', './index.html', './style.css', './engine.js', './app.js', './manifest.webmanifest', './icon.png',
+  // The US, UK and European/Brazilian versions (see tools/make_versions.py)
+  './us/', './us/manifest.webmanifest',
+  './uk/', './uk/manifest.webmanifest',
+  './eu/', './eu/manifest.webmanifest',
+];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));
