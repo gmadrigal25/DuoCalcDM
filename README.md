@@ -47,12 +47,22 @@ controls exactly as Dave Mason designed them.
   the decimal key, reset on delete, the indicator specks, lit-up keys and wrong-operator
   protection.
 
+## Pick your version
+
+| Link | Numbers look like | For |
+| --- | --- | --- |
+| **[gmadrigal25.github.io/DuoCalcDM](https://gmadrigal25.github.io/DuoCalcDM/)** or **[…/DuoCalcDM/us](https://gmadrigal25.github.io/DuoCalcDM/us/)** | `1,234,567.89` | US |
+| **[…/DuoCalcDM/uk](https://gmadrigal25.github.io/DuoCalcDM/uk/)** | `1,234,567.89` | UK, Ireland, Australia |
+| **[…/DuoCalcDM/eu](https://gmadrigal25.github.io/DuoCalcDM/eu/)** | `1.234.567,89` | Most of Europe, Brazil |
+
+Each link installs as its own app with its own saved force number, so pick one and stick with
+it. These match CalcDM's US, UK and EU versions.
+
 ## Install on the phone
 
 1. Host the folder over **HTTPS**. The easiest option is GitHub Pages: repo **Settings → Pages →
    Deploy from a branch**, pick the branch and `/ (root)`. Any static host works too.
-2. Open the URL (for GitHub Pages, `https://gmadrigal25.github.io/DuoCalcDM/`) in **Safari** on
-   the Duo, then **Share → Add to Home Screen**, and name it **Calculator**. The Home Screen
+2. Open your version's link (above) in **Safari** on the Duo, then **Share → Add to Home Screen**, and name it **Calculator**. The Home Screen
    name stays "Calculator" so it passes as the real app.
 3. Launch it once from the Home Screen while online so it caches. After that it works offline.
    If you added an earlier version, delete it and add it again. iOS only reads some settings
@@ -86,7 +96,8 @@ This follows the latest CalcDM, with the improvements by Dave Mason and Demian M
    works the same with the specks hidden (hold an operator to check: the number shown is
    negative on the wrong one).
 5. **The spectator drums their fingers.** Every separate tap, anywhere, types the next
-   character of the needed number, and that digit's key lights up as it appears. No key keeps
+   character of the needed number. That digit's key lights up while the finger is down, and the
+   key actually touched doesn't. No key keeps
    its usual job, not even delete. Two or three fingers landing together count as one tap. When
    every digit is in, the hand moves to **6 o'clock** and further taps do nothing. You can fold
    or unfold the phone in the middle of this.
@@ -154,6 +165,9 @@ Static files with no build step. Open `index.html`, or run `npm run serve`.
   hooks.
 - `style.css` contains the look. All the geometry comes from CSS variables set by `layout()`.
 - `sw.js` and `manifest.webmanifest` handle offline use and Home Screen install.
+- `us/`, `uk/` and `eu/` are the version folders. They're generated from `index.html` by
+  `tools/make_versions.py`, so run it after changing `index.html` or the manifest (`npm test`
+  checks they're up to date). The app reads the folder name to pick the number format.
 - `icon.png` is drawn from scratch by `tools/make_icon.py` in the style of the iOS system icon. You can replace
   it with any 512×512 PNG.
 - `npm test` runs the unit tests, a Chromium run-through of a full performance at Duo-like

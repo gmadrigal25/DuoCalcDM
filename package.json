@@ -3,7 +3,7 @@
   "private": true,
   "description": "Calculator force web app for iPhone Duo (folded and unfolded) and other iPhones",
   "scripts": {
-    "test": "node --test tests/engine.test.js && node tests/browser.test.js && node tests/rotation.test.js",
+    "test": "python3 tools/make_versions.py --check && node --test tests/engine.test.js && node tests/browser.test.js && node tests/rotation.test.js && node tests/versions.test.js",
     "serve": "python3 -m http.server 8080"
   }
 }
