@@ -119,17 +119,18 @@ const size = ({ width, height }) => ({ width, height });
   assert.strictEqual((await state()).text, '936');
   assert.deepStrictEqual(await page.evaluate(() => window.__calc.dots()), { op: '+', count: 4 }, '936 → +1090');
   const speck = await page.evaluate(() => {
-    const r = (el) => el.getBoundingClientRect();
-    const sp = r(document.getElementById('speckOp'));
-    const plus = r(document.querySelector('[data-key="+"]'));
-    const dg = r(document.getElementById('speckDigits'));
-    const four = r(document.querySelector('[data-key="4"]'));
-    return {
-      opUnderPlus: sp.left > plus.left && sp.right < plus.right && sp.top >= plus.bottom - 1,
-      digitsUnderFour: dg.left > four.left && dg.right < four.right && dg.top >= four.bottom - 1,
-    };
+    const on = [...document.querySelectorAll('.speck-on')].map((k) => k.dataset.key).sort();
+    // Each speck sits on its key, below the symbol and right of centre.
+    const inside = on.every((key) => {
+      const k = document.querySelector('[data-key="' + key + '"]');
+      const a = getComputedStyle(k, '::after');
+      const x = parseFloat(a.left);
+      const y = parseFloat(a.top);
+      return x > k.offsetWidth / 2 && x < k.offsetWidth && y > k.offsetHeight / 2 && y < k.offsetHeight;
+    });
+    return { on, inside };
   });
-  assert.deepStrictEqual(speck, { opUnderPlus: true, digitsUnderFour: true }, 'specks sit under + and 4');
+  assert.deepStrictEqual(speck, { on: ['+', '4'], inside: true }, 'specks on + and 4, below the symbol');
 
   // Peek the needed number by holding +
   await hold('[data-key="+"]');
@@ -138,9 +139,11 @@ const size = ({ width, height }) => ({ width, height });
   await page.waitForTimeout(50);
   assert.strictEqual((await state()).text, '936', 'display restored, + not pressed');
 
-  // Wrong way can't arm: − − does nothing when + is needed
+  // Wrong way can't arm: − − does nothing when + is needed, and × / ÷ never arm
   await key('-'); await key('-');
   assert.strictEqual((await state()).force.armed, false, '− − does not arm when + is needed');
+  await key('*'); await key('*');
+  assert.strictEqual((await state()).force.armed, false, '× × does not arm');
   // Arm with + +
   await key('+'); await key('+');
   s = await state();
@@ -201,7 +204,7 @@ const size = ({ width, height }) => ({ width, height });
   // Hold % hides the specks (remembered); a tap on % still works
   await hold('[data-key="percent"]'); await page.mouse.up();
   assert.strictEqual(await page.evaluate(() => window.__calc.dots()), null, 'hold % hides specks');
-  assert.strictEqual(await page.isHidden('#speckOp'), true);
+  assert.strictEqual(await page.locator('.speck-on').count(), 0, 'no speck drawn');
   assert.strictEqual((await state()).text, '829,771', 'hold % did not apply %');
   await hold('[data-key="percent"]'); await page.mouse.up();
   assert.deepStrictEqual(await page.evaluate(() => window.__calc.dots()), { op: '-', count: 6 }, 'hold % again shows them');
